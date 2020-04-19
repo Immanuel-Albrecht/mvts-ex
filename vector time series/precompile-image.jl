@@ -1,8 +1,11 @@
+
+
 using HypothesisTests
 using DataFrames
 using CSV
 using ArgParse
 using Plots
+using JuliaFormatter
 
 p = plot(rand(5), rand(5))
 display(p)
@@ -38,3 +41,11 @@ aps = ArgParseSettings(
 end
 
 args = parse_args(aps)
+
+format_file("format-dummy.jl")
+
+println(names(df))
+
+print( HypothesisTests.ADFTest(df[!, :Automobile], :none, 1) )
+
+print( HypothesisTests.ADFTest(df[!, :Automobile], :trend, 2) )
