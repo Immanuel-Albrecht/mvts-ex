@@ -6,9 +6,15 @@ using CSV
 using ArgParse
 using Plots
 using JuliaFormatter
+using StatsBase
+using Pkg
 
 p = plot(rand(5), rand(5))
 display(p)
+plotly()
+p = plot(rand(5), rand(5))
+display(p)
+gui(p)
 
 df = CSV.read("ch2/WW2a.csv")
 

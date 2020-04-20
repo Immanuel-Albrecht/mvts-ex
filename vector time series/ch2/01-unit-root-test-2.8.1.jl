@@ -6,7 +6,7 @@ using CSV
 using ArgParse
 
 aps = ArgParseSettings(
-    description = "This program performs Augmented Dickey-Fuller tests " * #TODO: add precise description
+    description = "This program performs Augmented Dickey-Fuller tests " *
                   "on each column of a given data set with increasing " *
                   "number of self-differences of the series, until " *
                   "the all differenced series' may be considered unit root free. " *

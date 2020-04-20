@@ -4,9 +4,20 @@
 *.so
 *.a
 
+# Pictures/Plots,...
+
+*.pdf
+*.png
+*.jpg
+*.jpeg
+
 # CSV files
 #
 *.csv
+
+# Excel, Word, ..
+*.xlsx
+*.doc
 
 # Created by https://www.gitignore.io/api/r,vim,code,julia,macos,scala,python,windows,jupyternotebooks
 # Edit at https://www.gitignore.io/?templates=r,vim,code,julia,macos,scala,python,windows,jupyternotebooks
