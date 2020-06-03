@@ -8,6 +8,9 @@ using Plots
 using JuliaFormatter
 using StatsBase
 using Pkg
+using Distributions
+
+Distributions.Normal(2,2)
 
 p = plot(rand(5), rand(5))
 display(p)
