@@ -24,7 +24,7 @@ aps = ArgParseSettings(
     "--p-value"
     help = "p-value for significance test whether the cross-correlations are significantly different from zero (based on t-test)"
     arg_type = Real
-    default = 0.01
+    default = 0.035
     
     "--diff"
     help = "number of times the difference operator D is applied to the input series"
@@ -80,7 +80,7 @@ lag_from = args["lag-from"]
 lag_to = args["lag-to"]
 
 if lag_to === nothing
-    lag_to = size(df)[1] - 1 - apply_D_count
+    lag_to = size(df)[1] - 3 - apply_D_count
 end
 
 
@@ -94,13 +94,13 @@ centered_components = Dict(col => Real[] for col = components)
 n = size(df)[1] - apply_D_count
 
 lag_column = Symbol("  lag k")
-i_column = Symbol(" i-component")
+i_column = Symbol(" j-component")
 
-output = Dict{Symbol,Array{Any,1}}(Symbol("rho^[i,D^($apply_D_count)["*String(j_col)*"]](k)") => Real[] for j_col = components)
+output = Dict{Symbol,Array{Any,1}}(Symbol("rho^[D^($apply_D_count)["*String(j_col)*"],j](k)") => Real[] for j_col = components)
 
 for j_col = components
-    output[Symbol("p(rho[i,D^($apply_D_count)["*String(j_col)*"]](k)=0|rho^,white-noise)")] = Real[]
-    output[Symbol(" p-sgn(rho[i,D^($apply_D_count)["*String(j_col)*"]](k))")] = String[]
+    output[Symbol("p(rho[D^($apply_D_count)["*String(j_col)*"],j](k) nonzero)")] = Real[]
+    output[Symbol(" p-sgn(rho[D^($apply_D_count)["*String(j_col)*"],j](k))")] = String[]
 end
 
 output[lag_column] = Int[]
@@ -112,7 +112,6 @@ for c = components
     diff_components[c] = diff_series(df[!,c],apply_D_count)
     avg_components[c] = Statistics.mean(diff_components[c])
     centered_components[c] = [x - avg_components[c] for x = diff_components[c]]
-    gamma_hat_i_i_at_zero[c] = sum([x*x for x = centered_components[c]])
 end
 
 
@@ -121,28 +120,37 @@ for lag_k = lag_from:lag_to
         append!(output[lag_column],[lag_k])
         append!(output[i_column],["D^($apply_D_count)["*String(i_col)*"]"])
         for j_col = components
-            rho_hat = sum([(centered_components[i_col][t])*(centered_components[j_col][t+lag_k])
+            sigma_j = sqrt(mean([x^2 for x = centered_components[j_col][1:(n-lag_k)]]))
+            sigma_i = sqrt(mean([x^2 for x = centered_components[i_col][(1+lag_k):n]]))
+            rho_hat = mean([(centered_components[j_col][t])*(centered_components[i_col][t+lag_k])
                 for t in 1:(n-lag_k)
-                ])/ sqrt(gamma_hat_i_i_at_zero[i_col]*gamma_hat_i_i_at_zero[j_col])
+                ])/ (sigma_i*sigma_j)
                 # rho^_{i,j}(k) = gamma^_{i,j}(k) / ((gamma^_{i,i}(0)^.5)(gamma^_{j,j}(0)^.5))
-            append!(output[Symbol("rho^[i,D^($apply_D_count)["*String(j_col)*"]](k)")],[
+            append!(output[Symbol("rho^[D^($apply_D_count)["*String(i_col)*"],j](k)")],[
                 rho_hat                
             ])
-            
+            #clamp the value of rho_hat
+            if rho_hat > 1
+                rho_hat = 1
+            elseif rho_hat < -1
+                rho_hat = -1
+            end
             test_value = rho_hat * sqrt((n-lag_k-2)/(1-rho_hat^2))
-            tdist = Distributions.TDist(n-lag_k-2)
+            degree_of_freedom = n-lag_k-2
+            tdist = Distributions.TDist(degree_of_freedom)
+            
             calc_p = pvalue(tdist,test_value)
             
-            append!(output[Symbol("p(rho[i,D^($apply_D_count)["*String(j_col)*"]](k)=0|rho^,white-noise)")],
+            append!(output[Symbol("p(rho[D^($apply_D_count)["*String(j_col)*"],j](k) nonzero)")],
             [calc_p])
             if calc_p < p_value
                 if rho_hat < 0
-                    append!(output[Symbol(" p-sgn(rho[i,D^($apply_D_count)["*String(j_col)*"]](k))")],["-"])
+                    append!(output[Symbol(" p-sgn(rho[D^($apply_D_count)["*String(j_col)*"],j](k))")],["-"])
                 else
-                    append!(output[Symbol(" p-sgn(rho[i,D^($apply_D_count)["*String(j_col)*"]](k))")],["+"])
+                    append!(output[Symbol(" p-sgn(rho[D^($apply_D_count)["*String(j_col)*"],j](k))")],["+"])
                 end
             else
-                append!(output[Symbol(" p-sgn(rho[i,D^($apply_D_count)["*String(j_col)*"]](k))")],["o"])
+                append!(output[Symbol(" p-sgn(rho[D^($apply_D_count)["*String(j_col)*"],j](k))")],["o"])
             end
         end
     end
