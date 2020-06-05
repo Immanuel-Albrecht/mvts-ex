@@ -10,6 +10,17 @@ using StatsBase
 using Pkg
 using Distributions
 
+using TimeSeries
+using GLM
+using MixedModels
+using StatsFuns
+using StatsModels
+using Distances
+using Clustering
+using KernelDensity
+using MultivariateStats
+using Survival
+
 Distributions.Normal(2,2)
 
 p = plot(rand(5), rand(5))
@@ -19,7 +30,7 @@ p = plot(rand(5), rand(5))
 display(p)
 gui(p)
 
-df = CSV.read("ch2/WW2a.csv")
+df = CSV.read("../data/WW2a.csv")
 
 aps = ArgParseSettings(
     description = "This program does stuff. " * #TODO: add precise description
