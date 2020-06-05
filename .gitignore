@@ -1,4 +1,7 @@
 
+data/*
+*.zip
+
 # Sysimages, Objects, Binaries:
 *.o
 *.so
