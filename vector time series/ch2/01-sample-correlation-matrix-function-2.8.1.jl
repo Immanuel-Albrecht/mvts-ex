@@ -24,7 +24,7 @@ aps = ArgParseSettings(
     "--p-value"
     help = "p-value for significance test whether the cross-correlations are significantly different from zero (based on t-test)"
     arg_type = Real
-    default = 0.035
+    default = 0.045
     
     "--diff"
     help = "number of times the difference operator D is applied to the input series"
@@ -116,9 +116,11 @@ end
 
 
 for lag_k = lag_from:lag_to
+    println("\n cross-correlation matrix for lag = $lag_k")
     for i_col = components
         append!(output[lag_column],[lag_k])
         append!(output[i_column],["D^($apply_D_count)["*String(i_col)*"]"])
+        print("  ")
         for j_col = components
             sigma_j = sqrt(mean([x^2 for x = centered_components[j_col][1:(n-lag_k)]]))
             sigma_i = sqrt(mean([x^2 for x = centered_components[i_col][(1+lag_k):n]]))
@@ -146,13 +148,17 @@ for lag_k = lag_from:lag_to
             if calc_p < p_value
                 if rho_hat < 0
                     append!(output[Symbol(" p-sgn(rho[D^($apply_D_count)["*String(j_col)*"],j](k))")],["-"])
+                    print(" -")
                 else
                     append!(output[Symbol(" p-sgn(rho[D^($apply_D_count)["*String(j_col)*"],j](k))")],["+"])
+                    print(" +")
                 end
             else
-                append!(output[Symbol(" p-sgn(rho[D^($apply_D_count)["*String(j_col)*"],j](k))")],["o"])
+                append!(output[Symbol(" p-sgn(rho[D^($apply_D_count)["*String(j_col)*"],j](k))")],["."])
+                print(" .")
             end
         end
+        println()
     end
 end
 
