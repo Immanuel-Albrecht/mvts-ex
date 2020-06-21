@@ -69,3 +69,35 @@ println(names(df))
 print( HypothesisTests.ADFTest(df[!, :Automobile], :none, 1) )
 
 print( HypothesisTests.ADFTest(df[!, :Automobile], :trend, 2) )
+
+
+using Random
+
+N = 10000
+x = rand(N)
+X = [ones(N) x]
+y = 10 .+ x .* 0.3
+
+function linreg1(y, X)
+    β_hat = (X' * X) \ X' * y
+    return(β_hat)
+end
+
+function linreg2(y, X)
+    β_hat = X \ y
+    return(β_hat)
+end
+
+using GLM
+GLM.fit(LinearModel, X, y, true)
+
+using DataFrames, GLM
+data = DataFrame(X = x, Y = y)
+lm(@formula(Y ~ X), data)
+
+
+using BenchmarkTools
+@benchmark linreg1(y, X)
+@benchmark linreg2(y, X)
+@benchmark GLM.fit(LinearModel, X, y, true)
+@benchmark lm(@formula(Y ~ X), data)
