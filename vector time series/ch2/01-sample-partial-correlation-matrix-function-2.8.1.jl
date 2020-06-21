@@ -7,8 +7,12 @@ using ArgParse
 using Statistics
 using Distributions
 
+print("TODO!!!!!")
+exit(66)
+# It's on page 24, along with a chi-squared test for zero matrix
+
 aps = ArgParseSettings(
-    description = "This program computes the sample correlation matrix for a given " *
+    description = "This program computes the partial correlation matrix for a given " *
                   "difference D^(d) of a multi-variate time series at a set of given lags. " *
                   "We suppose that the time series is" *
                   " presented in order from earlier to later," *
@@ -122,10 +126,6 @@ for lag_k = lag_from:lag_to
         append!(output[i_column],["D^($apply_D_count)["*String(i_col)*"]"])
         print("  ")
         for j_col = components
-
-            # This is on page 23, yet in the book the denominator
-            # does not seem to be right (sums over all n samples instead of the used n-k samples)
-
             sigma_j = sqrt(mean([x^2 for x = centered_components[j_col][1:(n-lag_k)]]))
             sigma_i = sqrt(mean([x^2 for x = centered_components[i_col][(1+lag_k):n]]))
             rho_hat = mean([(centered_components[j_col][t])*(centered_components[i_col][t+lag_k])
