@@ -82,7 +82,7 @@ function calculate_residual_vectors(x, lag::Int)
     # convert data frame to array ...
     x = Array{Float64}(x)
     
-    # (1.6),(1.7) on p. 5
+    # (1.6),(1.7) on p. 5 [beware that there is a typo in (1.7): when s=1, V_{s-1,t} = Z_t not Z_{t+1}]
     n_row,n_col = size(x)
     
     # calculate sizes
