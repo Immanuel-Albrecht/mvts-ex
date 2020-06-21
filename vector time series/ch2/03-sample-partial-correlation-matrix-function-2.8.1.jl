@@ -6,10 +6,8 @@ using CSV
 using ArgParse
 using Statistics
 using Distributions
+using GLM
 
-print("TODO!!!!!")
-exit(66)
-# It's on page 24, along with a chi-squared test for zero matrix
 
 aps = ArgParseSettings(
     description = "This program computes the partial correlation matrix for a given " *
@@ -74,6 +72,57 @@ end
 
 ###
 
+"""
+    (x, lag::Int)
+    
+    x __ data frame with value columns, rows must be in order of the time column (which must be omitted)
+"""
+function calculate_residual_vectors(x, lag::Int)
+    
+    # convert data frame to array ...
+    x = Array{Float64}(x)
+    
+    # (1.6),(1.7) on p. 5
+    n_row,n_col = size(x)
+    
+    # calculate sizes
+    rows = n_row - (lag+1)
+    
+    X_cols = n_col * (lag-1)
+    
+    
+    X = Array{Float64}(undef, rows, X_cols)
+    
+    # fill covariates
+    
+    for r in 1:rows
+        for l in 1:(lag-1)
+            X[r,1 + (l-1)*n_col : l*n_col] = x[r+l,:]
+        end
+    end
+    
+    # calculate residuals
+    
+    U = Array{Float64}(undef, rows, X_cols)
+    V = Array{Float64}(undef, rows, X_cols)
+    
+    # each column has to be fitted for themselves
+    for c in 1:n_col
+            yu = x[1:rows,c]
+            yv = x[1+lag:lag+rows,c]
+            mu = GLM.fit(LinearModel, X, yu, true)
+            mv = GLM.fit(LinearModel, X, yv, true)
+            yhat_u = predict(mu,X)
+            yhat_v = predict(mv,X)
+            U[:,c] = yu - yhat_u
+            V[:,c] = yv - yhat_v
+    end
+    
+    return U,V
+end
+
+###
+
 df = CSV.read(args["csv"])
 time_col = Symbol(args["time-column"])
 apply_D_count = args["diff"]
@@ -84,12 +133,22 @@ lag_from = args["lag-from"]
 lag_to = args["lag-to"]
 
 if lag_to === nothing
-    lag_to = size(df)[1] - 3 - apply_D_count
+    lag_to = min(10,size(df)[1] - 3 - apply_D_count)
 end
 
 
 
 components = [col for col in names(df) if !(col == time_col)]
+
+U,V = calculate_residual_vectors(df[:,components],2)
+
+
+
+print("TODO!!!!!")
+
+# It's on page 24, along with a chi-squared test for zero matrix
+
+if (false)
 
 diff_components = Dict(col => Real[] for col = components)
 avg_components = Dict{Symbol,Real}(col => 0 for col = components)
@@ -173,4 +232,6 @@ println(df_output)
 store = args["store"]
 if store !== nothing
     CSV.write(args["store"], df_output)
+end
+
 end
