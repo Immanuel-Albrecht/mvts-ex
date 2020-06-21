@@ -123,6 +123,39 @@ end
 
 ###
 
+"""
+    (U,V)
+    
+    U,V  __ time series, each row corresponds to the series at a given time; must be ordered accordingly.
+    
+    determines the (sample) cross-correlation matrix between U and V
+"""
+function sample_cor_matrix(U,V)
+    
+    U_row,U_col = size(U)
+    V_row,V_col = size(V)
+    
+    @assert(U_row == V_row)
+    
+    R = Array{Float64}(undef, U_col, V_col)
+    
+    for u in 1:U_col
+        for v in 1:V_col
+            x = U[:,u]
+            y = V[:,v]
+            x_centered = x .- Statistics.mean(x)
+            y_centered = y .- Statistics.mean(y)
+            sigma_x = sqrt(mean([xt^2 for xt in x]))
+            sigma_y = sqrt(mean([yt^2 for yt in y]))
+            R[u,v] = mean(x .* y)/(sigma_x*sigma_y)
+        end
+    end
+    
+    return R
+end
+
+###
+
 df = CSV.read(args["csv"])
 time_col = Symbol(args["time-column"])
 apply_D_count = args["diff"]
@@ -142,7 +175,7 @@ components = [col for col in names(df) if !(col == time_col)]
 
 U,V = calculate_residual_vectors(df[:,components],2)
 
-
+println(sample_cor_matrix(U,V))
 
 print("TODO!!!!!")
 
