@@ -29,7 +29,7 @@ aps = ArgParseSettings(
     "--diff"
     help = "number of times the difference operator D is applied to the input series"
     arg_type = Int
-    default = 0
+    default = 1
     
     "--lag-from"
     help = "minimal lag k"
@@ -46,6 +46,11 @@ aps = ArgParseSettings(
     arg_type = String
     required = false
     
+    "--i-know-its-wrong"
+    help = "ignore the fact that this is probably not right"
+    arg_type = Bool
+    default = false
+    
     "csv"
     help = "path to the CSV containing the vector time series"
     required = false
@@ -54,6 +59,19 @@ aps = ArgParseSettings(
 end
 
 args = parse_args(aps)
+
+if ! args["i-know-its-wrong"]
+    println("""
+It's wrong to use this without first making sure why this code does the same thing as intended in the book.
+
+This is rather loosely based on the book; I used a different way to determine the sample correlations.
+So this might be rather wrong altogether. Strangely, I still managed to produce the same output as the
+examples.
+""")
+
+exit(1)
+
+end
 
 ###
 
