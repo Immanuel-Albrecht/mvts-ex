@@ -42,7 +42,7 @@ aps = ArgParseSettings(
     default = 1
     
     "--center"
-    help = "center every observation variable after differencing"
+    help = "center every covariate and response before regressions"
     arg_type = Bool
     default = true
     
@@ -55,11 +55,17 @@ aps = ArgParseSettings(
     help = "use symmetric parameter choice for regression"
     arg_type = Bool
     default = false
-    
-    "--force-intercept"
-    help = "force the intercept term into the regression (not a good idea at all)"
+        
+    "--keep-previous-parameters"
+    help = "keep the parameter set used in the previous lag, even if some of them are insignificant now."
     arg_type = Bool
     default = false
+    
+    "--i-know-its-wrong"
+    help = "a friendly reminder that you should be cautious with the results from this script"
+    arg_type = Bool
+    default = false
+
     
     "--lag-from"
     help = "minimal lag k"
@@ -94,6 +100,34 @@ aps = ArgParseSettings(
 end
 
 args = parse_args(aps)
+
+if ! args["i-know-its-wrong"]
+    println("""
+Here we are struggling to reproduce the figure 2.2 on page 36.
+No way what I try, I just do not get very close to the numbers in the figure.
+    
+A very probable cause of this problem is that there is little information on how they actually
+did the regressions involved. If you ignore significance and allow all possible parameters
+into the regression formula, then your linear system ends up underspecified at lag 12 (77 values, 80 parameters).
+
+I did some try and error with different regression approaches, the current default settings are
+what seems to be the most sensible setup, and the settings that play along well with the
+conclusions in the book.
+
+Unfortunately, the cutoff really depends on the regression choices a bit, so this would be
+another source of confusion (so it's really not that clear as it seems when reading the chapter). 
+
+The good news is: the general shape of the chi-squared statistics does not vary too much with
+different regression settings; generally: if you overfit, then the variance of the residuals gets
+rather small quickly and thus the partial lag matrix will have ever growing huge entries
+(since in the formula, we divide by that variance).
+
+So really do your own research if you want to use this tool.
+""")
+
+    exit(1)
+
+end
 
 ###
 
@@ -170,16 +204,20 @@ end
     
     x __ data frame with value columns, rows must be in order of the time column (which must be omitted)
 """
-function calculate_residual_vectors(x, lag::Int, p_value, with_intercept, force_intercept, symmetric)
-    
-    #
-    # TODO: the problem lies probably here, as we are 'overfitting' thus making
-    #       the vectors very small and the corresponding DU^-1 * CVU * DV^-1 matrices BIG 
-    #
+function calculate_residual_vectors(
+    x, 
+    lag::Int, 
+    p_value::Float64, 
+    center::Bool,
+    with_intercept::Bool, 
+    symmetric::Bool, 
+    u_prechosen::Array{Array{Integer,1},1},
+    v_prechosen::Array{Array{Integer,1},1})
     
 
     # convert data frame to array ...
     x = Array{Float64}(x)
+    
 
     # (1.6),(1.7) on p. 5 [beware that there is a typo in (1.7): when s=1, V_{s-1,t} = Z_t not Z_{t+1}]
     n_row,n_col = size(x)
@@ -208,6 +246,12 @@ function calculate_residual_vectors(x, lag::Int, p_value, with_intercept, force_
             end
         end
         
+        if center
+            for c = 1:X_cols
+                X[:,c] .-= mean(X[:,c])
+            end
+        end
+        
         if with_intercept
             X[:,X_cols + 1] .= 1 # Add intercept term
         end
@@ -220,32 +264,29 @@ function calculate_residual_vectors(x, lag::Int, p_value, with_intercept, force_
         nU = 0
         nV = 0
         
+        used_U = Array{Array{Integer,1},1}(undef,n_col)
+        used_V = Array{Array{Integer,1},1}(undef,n_col)
+        
         # each column has to be fitted for themselves
         for c in 1:n_col
                 yu = x[1:rows,c]
                 yv = x[1+lag:lag+rows,c]
                 
-                
-                #mu = GLM.fit(LinearModel, X, yu, true)
-                #mv = GLM.fit(LinearModel, X, yv, true)
-                
-                #global X00,y00
-                #X00 = X
-                #y00 = yu
-                
-                #println(coeftable(mu))
-                
-                #yhat_u = predict(mu,X)
-                #yhat_v = predict(mv,X)
-                
-                if force_intercept
-                    chosen_columns = [X_cols + 1]
-                else
-                    chosen_columns = []
+                if center
+                    yu .-= mean(yu)
+                    yv .-= mean(yv)
                 end
                 
-                residual_u,col_u, = auto_regression_residuals(X,yu,p_value,chosen_columns)
-                residual_v,col_v, = auto_regression_residuals(X,yv,p_value,chosen_columns)
+                u_chosen_columns = []
+                v_chosen_columns = []
+                
+                
+                append!(u_chosen_columns,u_prechosen[c])
+                append!(v_chosen_columns,v_prechosen[c])
+                
+                
+                residual_u,col_u, = auto_regression_residuals(X,yu,p_value,u_chosen_columns)
+                residual_v,col_v, = auto_regression_residuals(X,yv,p_value,v_chosen_columns)
                 
                 if symmetric
                     
@@ -259,9 +300,11 @@ function calculate_residual_vectors(x, lag::Int, p_value, with_intercept, force_
                 V[:,c] = residual_v
                 nU += length(col_u)
                 nV += length(col_v)
+                used_U[c] = col_u
+                used_V[c] = col_v
         end
         
-        return U,V,nU,nV
+        return U,V,nU,nV,used_U,used_V
     
     elseif (lag == 1)
         # for s=1, the formula does not involve any regression at all.
@@ -275,11 +318,22 @@ function calculate_residual_vectors(x, lag::Int, p_value, with_intercept, force_
         for c in 1:n_col
                 yu = x[1:rows,c]
                 yv = x[1+lag:lag+rows,c]
+                if center
+                    yu .-= mean(yu)
+                    yv .-= mean(yv)
+                end
                 U[:,c] = yu
                 V[:,c] = yv
         end
         
-        return U,V,nU,nV
+        used_U = Array{Array{Integer,1},1}(undef,n_col)
+        used_V = Array{Array{Integer,1},1}(undef,n_col)
+        for i = 1:n_col
+            used_U[i] = Integer[]
+            used_V[i] = Integer[]
+        end
+        
+        return U,V,nU,nV,used_U,used_V
         
     end
 end
@@ -406,16 +460,17 @@ df = CSV.read(args["csv"])
 time_col = Symbol(args["time-column"])
 apply_D_count = args["diff"]
 
+center = args["center"]
+
 p_value = args["p-value"]
 fit_p_value = args["fit-p-value"]
 with_intercept = args["with-intercept"]
-force_intercept = args["force-intercept"]
+
+
+keep_parameters = args["keep-previous-parameters"]
 
 symmetric = args["symmetric-choice"]
 
-if force_intercept
-    with_intercept = true
-end
 
 lag_from = args["lag-from"]
 lag_to = args["lag-to"]
@@ -425,15 +480,11 @@ if lag_to === nothing
 end
 
 
-println("p: $p_value, fit_p: $fit_p_value, sym:$symmetric, ICPT:$with_intercept force?:$force_intercept, diff:$apply_D_count, lag=$lag_from:$lag_to")
+println("p: $p_value, fit_p: $fit_p_value, center:$center, sym:$symmetric, ICPT:$with_intercept, keep:$keep_parameters, diff:$apply_D_count, lag=$lag_from:$lag_to")
 
 components = [col for col in names(df) if !(col == time_col)]
 
-if args["center"]
-    diff_components = DataFrame(Dict(col => center_series(diff_series(df[!,col],apply_D_count)) for col = components))
-else
-    diff_components = DataFrame(Dict(col => diff_series(df[!,col],apply_D_count) for col = components))
-end
+diff_components = DataFrame(Dict(col => diff_series(df[!,col],apply_D_count) for col = components))
 
 
 lag_column = Symbol("  lag k")
@@ -457,10 +508,37 @@ n_obs, = size(diff_components)
 
 chi_dist = Chisq(length(components)^2)
 
+last_used_U = Array{Array{Integer,1},1}(undef,n_columns)
+last_used_V = Array{Array{Integer,1},1}(undef,n_columns)
+for i = 1:n_columns
+    last_used_U[i] = Integer[]
+    last_used_V[i] = Integer[]
+end
+
+
 for lag_k = lag_from:lag_to
-    global P,X,U,V,CVU,DU,DV,P0
+    global P,X,U,V,CVU,DU,DV,P0,last_used_U,last_used_V
     print("\rpartial cross-correlation matrix for lag = $lag_k")
-    U,V,nU,nV = calculate_residual_vectors(diff_components,lag_k,fit_p_value,with_intercept,force_intercept,symmetric)
+    
+
+    U,V,nU,nV,used_U,used_V = calculate_residual_vectors(
+                                diff_components,
+                                lag_k,
+                                fit_p_value,
+                                center,
+                                with_intercept,
+                                symmetric,
+                                last_used_U,
+                                last_used_V)
+                                
+    if keep_parameters
+        last_used_U = used_U
+        for i in 1:n_columns
+            # for the V vector, the new parameters are appended at the first column of X
+            last_used_V[i] = [x + n_columns for x = used_V[i]]
+        end
+    end
+    
     CVU = C_UV(V,U)
     DU = C_UV(U,U,true)
     DV = C_UV(V,V,true)
@@ -507,6 +585,11 @@ if store !== nothing
     df_output = DataFrame(output)
 
     CSV.write(args["store-matrix"], df_output)
+end
+
+store = args["store"]
+if store !== nothing
+    CSV.write(args["store"], df_stats)
 end
 
 
