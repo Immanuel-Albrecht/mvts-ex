@@ -47,7 +47,7 @@ aps = ArgParseSettings(
     required = false
     
     "--i-know-its-wrong"
-    help = "ignore the fact that this is probably not right"
+    help = "a friendly reminder that you should be cautious with the results from this script"
     arg_type = Bool
     default = false
     
@@ -69,7 +69,7 @@ So this might be rather wrong altogether. Strangely, I still managed to produce 
 examples.
 """)
 
-exit(1)
+    exit(1)
 
 end
 
