@@ -112,7 +112,12 @@ into the regression formula, then your linear system ends up underspecified at l
 
 I did some try and error with different regression approaches, the current default settings are
 what seems to be the most sensible setup, and the settings that play along well with the
-conclusions in the book.
+conclusions in the book. I did not try regularization methods though, the differences in chisquared 
+stastics between this approach and the figure in the book might stem from the fact that I do
+parameter selection and unconstrained regression, which will filter out an influence that may be
+explained by a covariate completely, even if the coefficient in the model is very high; a regularized regression
+model would not do the same and would only filter part of it until it hits the sweet spot between
+explaination and punishment for high coefficients.
 
 Unfortunately, the cutoff really depends on the regression choices a bit, so this would be
 another source of confusion (so it's really not that clear as it seems when reading the chapter). 
